@@ -6,9 +6,9 @@
   "use strict";
   const D = window.Data, F = window.Filters, C = window.Charts, T = window.Tables, N = window.Names;
   const fmt = D.fmt, esc = fmt.esc;
-  const PAGES = ["resumen", "tarjetas", "bancos", "productos", "excepciones", "cronograma", "calidad"];
+  const PAGES = ["tesoreria", "resumen", "tarjetas", "bancos", "productos", "excepciones", "cronograma", "calidad"];
   const ALIAS = { utilidad: "productos", continuidad: "cronograma" };
-  const TITLES = { resumen: "Resumen", tarjetas: "Tarjetas de crédito", bancos: "Bancos y efectivo", productos: "Productos", excepciones: "Excepciones", cronograma: "Cronograma y continuidad", calidad: "Calidad de datos" };
+  const TITLES = { tesoreria: "Tesorería", resumen: "Resumen", tarjetas: "Tarjetas de crédito", bancos: "Bancos y efectivo", productos: "Productos", excepciones: "Excepciones", cronograma: "Cronograma y continuidad", calidad: "Calidad de datos" };
   const CONTROL = ["excepciones", "cronograma", "calidad"];
   const ui = { ccMeasure: "gross_spend", excView: "todas", dqAll: false };
 
@@ -139,7 +139,7 @@
     host.querySelector("#p-year").addEventListener("change", e => F.set("year", e.target.value));
     host.querySelector("#p-q").addEventListener("change", e => F.set("quarter", e.target.value));
     const pl = prevLabelFor(F.page === "bancos" ? "bank" : "tc");
-    document.getElementById("cmp-label").textContent = !CONTROL.includes(F.page) && pl ? `vs ${pl}` : "";
+    document.getElementById("cmp-label").textContent = F.page === "tesoreria" ? (trPeriod().prev ? `vs ${trPeriod().prev}` : "") : !CONTROL.includes(F.page) && pl ? `vs ${pl}` : "";
     const n = ["month", "bank", "product", "card", "category", "flow", "status", "risk", "source"].filter(k => F.applies(k) && F.get(k)).length;
     document.getElementById("btn-filters").textContent = n ? `Filtros (${n})` : "Filtros";
   }
@@ -159,6 +159,7 @@
     const m = D.meta || {};
     const el = document.getElementById("foot");
     if (CONTROL.includes(p)) el.innerHTML = `Fuente de verdad: ${(m.sources || []).map(s => `${esc(s.file)} (modificado ${fmt.date(s.modified)})`).join(" · ")}. Refresh ${fmt.date(m.last_refresh)} · esquema v${esc(m.schema_version || "")}.`;
+    else if (p === "tesoreria") el.innerHTML = `Cifras en COP. Período: ${esc(trPeriod().cur || "—")} (cierre de trimestre). Fuente: Sistema_Auditoria_TC.xlsx › Metricas_Tesoreria y Tesoreria_Input, conciliada contra Auditoria_Bancos.xlsx. Datos al ${esc(fmt.date(m.last_refresh).slice(0, 10))}.`;
     else el.innerHTML = `Cifras en COP. Período: ${esc(scopeLabel(p === "bancos" ? "bank" : "tc"))}. Datos al ${esc(fmt.date(m.last_refresh).slice(0, 10))}. Origen y conciliaciones en <a href="#calidad">Calidad de datos</a>.`;
   }
 
@@ -268,6 +269,133 @@
     else C.empty("ch-r1");
     if (months.length) C.bar("ch-r2", months.map(mo => F.monthLabel(mo)), [{ label: "Saldo", data: series, backgroundColor: months.map(mo => Number(mo.slice(0, 4)) === y ? COL.cur : COL.prev) }], { fmt: v => M(v, 1) });
     else C.empty("ch-r2");
+  }
+
+
+  /* ======================================================================================
+     0. TESORERÍA (Treasury Control Tower) — lee Metricas_Tesoreria tal como la calcula Excel; no recalcula.
+     ====================================================================================== */
+  function trPeriod() {
+    const ps = (D.tr && D.tr.periods) || [];
+    const y = selYear(), q = selQ();
+    let cur = null;
+    if (y && q) cur = ps.includes(`Q${q}-${y}`) ? `Q${q}-${y}` : null;
+    else if (y) cur = ps.filter(p => p.endsWith(String(y))).pop() || null;
+    else cur = ps[ps.length - 1] || null;
+    const i = ps.indexOf(cur);
+    const yoy = cur ? `${cur.slice(0, 3)}${Number(cur.slice(3)) - 1}` : null;
+    return { ps, cur, prev: i > 0 ? ps[i - 1] : null, yoy: yoy && ps.includes(yoy) ? yoy : null };
+  }
+  const trv = (k, p) => { const m = D.tr.metrics[k]; return m && p ? m.values[p] : null; };
+  const trUnit = k => (D.tr.metrics[k] || {}).unit || "";
+  function trFmt(k, v) {
+    if (!num(v)) return v === null || v === undefined ? "—" : esc(v);
+    const u = trUnit(k);
+    if (/%/.test(u)) return pct(v, /E\.A\./.test(u) ? 2 : 1);
+    if (u === "meses") return dec(v, 1);
+    if (u === "n°") return fmt.int(v);
+    return M(v);
+  }
+  function trDelta(k, cur, prev, lbl, o = {}) {
+    const a = trv(k, cur), b = trv(k, prev);
+    if (!num(a) || !num(b) || !prev) return "";
+    if (/%|meses/.test(trUnit(k))) { const d = a - b; return `${d >= 0 ? "+" : "−"}${/%/.test(trUnit(k)) ? dec(d * 100, 1) + " pp" : dec(d, 1) + " meses"} vs ${esc(lbl)}`; }
+    return b ? `${fmt.signedPct(a / Math.abs(b) - (b < 0 ? -1 : 1))} vs ${esc(lbl)}` : `vs ${M(b)} en ${esc(lbl)}`;
+  }
+  function renderTesoreria() {
+    const el = document.getElementById("page-tesoreria");
+    if (!D.tr || !D.tr.metadata || !D.tr.metadata.available) {
+      el.innerHTML = `<div class="banner warn">No hay datos de tesorería. Agregue las hojas Tesoreria_Input y Metricas_Tesoreria al libro de tarjetas, guárdelo en Excel y ejecute el refresh.</div>`; return;
+    }
+    const { ps, cur, prev, yoy } = trPeriod();
+    if (!cur) { el.innerHTML = `<div class="empty">Metricas_Tesoreria no tiene columna para el período seleccionado. Períodos disponibles: ${esc(ps.join(", "))}.</div>`; return; }
+    const v = k => trv(k, cur), P = D.tr.metadata.params || {};
+    const reserveM = P.reserve_months, opBal = P.operating_balance;
+    const gap = v("reserve_gap"), util = v("cc_util"), runway = v("runway");
+    const chk = v("chk_status");
+    const cmpCols = [cur, prev, yoy].filter(Boolean);
+    const cmpHead = `<th></th>${cmpCols.map(p => `<th class="num">${esc(p)}</th>`).join("")}`;
+    const tbl = keys => `<table class="mini"><thead><tr>${cmpHead}</tr></thead><tbody>${keys.map(k => `<tr><td>${esc((D.tr.metrics[k] || {}).label || k)}${src((D.tr.metrics[k] || {}).definition)}</td>${cmpCols.map(p => `<td class="num">${trFmt(k, trv(k, p))}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    // líneas de crédito
+    const fac = (D.tr.facilities || []).filter(f => f["Estado maestro"] === "Activa");
+    const facClosed = (D.tr.facilities || []).filter(f => f["Estado maestro"] !== "Activa");
+    const facName = f => N.find(f["Producto en base"] || "") ? N.name(f["Producto en base"]) : (N.find(f.Tarjeta || "") ? N.name(f.Tarjeta) : `${f.Banco} ${f.Plan || ""}`.trim());
+    const facRows = list => list.map(f => `<tr><td>${esc(facName(f))} <span class="ref-s">${esc(f.Tarjeta || "")}</span></td><td class="num">${M(f["Cupo (maestro)"])}</td>
+      <td class="num">${num(f["Saldo último corte"]) ? M(f["Saldo último corte"]) : "—"}</td><td class="num">${num(f["Utilización último corte"]) ? pct(f["Utilización último corte"]) : "—"}</td>
+      <td class="num">${num(f["Días corte → pago"]) ? fmt.int(f["Días corte → pago"]) : "—"}</td><td class="num">${num(f["Plazo sin intereses máx. (días)"]) ? fmt.int(f["Plazo sin intereses máx. (días)"]) : "—"}</td>
+      <td class="num">${num(f["Saldo máximo recomendado (30%)"]) ? M(f["Saldo máximo recomendado (30%)"]) : "—"}</td><td class="num">${num(f["Margen hasta 30%"]) ? M(f["Margen hasta 30%"]) : "—"}</td>
+      <td class="num">${num(f["Tasa E.A."]) ? pct(f["Tasa E.A."], 1) : "—"}</td><td class="num">${M(f["Cuota de manejo actual"])}</td></tr>`).join("");
+    const facHead = `<thead><tr><th>Tarjeta</th><th class="num">Cupo (maestro)</th><th class="num">Saldo último corte</th><th class="num">Utilización</th><th class="num">Días corte → pago</th><th class="num">Plazo máx. sin intereses</th><th class="num">Saldo máx. 30%</th><th class="num">Margen hasta 30%</th><th class="num">Tasa E.A.</th><th class="num">Cuota de manejo</th></tr></thead>`;
+    const noStmt = fac.filter(f => !num(f["Saldo último corte"]));
+    // atención (solo lectura de las métricas)
+    const att = [];
+    if (num(gap) && gap < 0) att.push(["Liquidez", `Déficit frente a la reserva de ${fmt.int(reserveM)} meses: (${M(-gap)})`, `Cobertura de ${dec(runway, 1)} meses con el gasto promedio de los últimos 4 trimestres.`]);
+    if (num(v("cp_over_cap")) && v("cp_over_cap") > 0) att.push(["Contraparte", `${M(v("cp_over_cap"))} en ahorros por encima del tope Fogafín`, "El seguro de depósitos cubre hasta el tope por persona y entidad."]);
+    if (num(v("idle_close")) && v("idle_close") > 0) att.push(["Rendimiento", `Caja ociosa en ahorros al cierre: ${M(v("idle_close"))}`, `Saldo sobre el operativo de ${M(opBal)}. Costo de oportunidad estimado del trimestre: ${M(v("opp_cost"))}.`]);
+    if (num(v("cc_interest")) && v("cc_interest") > 0) att.push(["Tarjetas", `Intereses de tarjetas pagados: ${M(v("cc_interest"))}`, "Meta: 0. Revise la excepción del trimestre."]);
+    if (num(v("cc_room_max")) && v("cc_room_max") < 0) att.push(["Tarjetas", `Utilización agregada ${pct(util)}: por encima del máximo de ${pct(v("cc_util_limit"), 0)}`, `Reduzca el saldo al corte en ${M(-v("cc_room_max"))} o páguelo antes de la fecha de corte; el saldo reportado es el del corte.`]);
+    else if (num(v("cc_room_ideal")) && v("cc_room_ideal") < 0) att.push(["Tarjetas", `Utilización agregada ${pct(util)}: sobre la meta de ${pct(v("cc_util_ideal"), 0)}`, `Dentro del máximo de ${pct(v("cc_util_limit"), 0)}. Exceso sobre la meta: ${M(-v("cc_room_ideal"))}.`]);
+    if (num(v("cc_over")) && v("cc_over") > 0) att.push(["Tarjetas", `${fmt.int(v("cc_over"))} corte(s) sobre el umbral de utilización (${pct(P.utilization_threshold, 0)})`, `Utilización máxima de un corte: ${pct(v("cc_util_max"))}.`]);
+    if (noStmt.length) att.push(["Datos", `${noStmt.length} tarjeta(s) activa(s) sin extracto en el sistema`, noStmt.map(facName).join(", ") + ". Su saldo no entra en la deuda ni en la utilización."]);
+    if (chk && chk !== "OK") att.push(["Datos", `Controles de Metricas_Tesoreria: ${chk}`, "Revise que el trimestre tenga 3 meses en Tesoreria_Input y columna en Historico_Trimestral."]);
+
+    el.innerHTML = `<div class="stack">
+      <div class="strip"><span><b>Cierre ${esc(cur)}</b></span><span>Reserva objetivo: ${fmt.int(reserveM)} meses de gasto</span><span>Saldo operativo en ahorros: ${M(opBal)}</span>
+        <span>Controles de la hoja: ${esc(chk || "—")}</span><span>${fmt.int((D.meta.reconciliation || {}).passed)} conciliaciones OK (incluye insumos de tesorería)</span></div>
+      <div class="grid g5">
+        ${kpi("Liquidez total", M(v("liq_total")), "COP · ahorros + fiducuentas", trDelta("liq_total", cur, prev, prev), { tip: (D.tr.metrics.liq_total || {}).definition })}
+        ${kpi("Posición neta de caja", M(v("net_cash")), "COP · liquidez − deuda de tarjetas", `Deuda de tarjetas ${M(v("cc_debt"))}`, { tip: (D.tr.metrics.net_cash || {}).definition })}
+        ${kpi("Meses de cobertura", num(runway) ? dec(runway, 1) : "—", `meses · objetivo ${fmt.int(reserveM)}`, num(gap) ? (gap >= 0 ? `Exceso ${M(gap)} sobre la reserva` : `Déficit (${M(-gap)}) frente a la reserva`) : "", { alert: num(gap) && gap < 0, tip: (D.tr.metrics.runway || {}).definition })}
+        ${kpi("Utilización de cupo", num(util) ? pct(util) : "—", `deuda ÷ cupo · máximo ${pct(v("cc_util_limit"), 0)}, ideal ${pct(v("cc_util_ideal"), 0)}`, num(v("cc_room_max")) ? (v("cc_room_max") >= 0 ? `Margen hasta ${pct(v("cc_util_limit"), 0)}: ${M(v("cc_room_max"))}` : `Exceso sobre ${pct(v("cc_util_limit"), 0)}: (${M(-v("cc_room_max"))})`) : "", { alert: num(util) && num(v("cc_util_limit")) && util > v("cc_util_limit"), tip: (D.tr.metrics.cc_util_limit || {}).definition })}
+        ${kpi("Costo bancario", M(v("cost_total")), "COP · trimestre", num(v("cost_pct")) ? `${pct(v("cost_pct"), 2)} del gasto · ${trDelta("cost_total", cur, prev, prev) || ""}` : "", { tip: (D.tr.metrics.cost_total || {}).definition })}
+      </div>
+      <div class="grid g2">
+        ${card("Liquidez por cuenta a fin de mes", `<div id="tr-leg1"></div><div class="chart-box"><canvas id="ch-tr1"></canvas></div>`, { unit: "COP" })}
+        ${card("Liquidez, deuda de tarjetas y reserva objetivo", `${legend([{ label: "Liquidez total", color: COL.cur }, { label: "Deuda de tarjetas", color: COL.prev }, { label: "Reserva objetivo", color: COL.line, line: true }])}<div class="chart-box"><canvas id="ch-tr2"></canvas></div>`, { unit: "COP · cierre de trimestre" })}
+      </div>
+      <div class="grid g2">
+        ${card("Costo bancario por trimestre", `${legend([{ label: "Cuotas de manejo", color: COL.cur }, { label: "Seguros", color: COL.fam }, { label: "Intereses", color: COL.line }, { label: "GMF 4x1000", color: COL.und }])}<div class="chart-box"><canvas id="ch-tr3"></canvas></div>`, { unit: "COP", note: `Retención en la fuente sobre rendimientos del trimestre: ${M(v("tax_wht"))} (anticipo de renta; no se suma al costo).` })}
+        ${card("Requiere atención", att.length ? `<div class="att">${att.map(([k, t, d]) => `<div><span class="k">${esc(k)}</span><div><div class="t">${esc(t)}</div><div class="x">${esc(d)}</div></div></div>`).join("")}</div>` : `<div class="empty">Sin alertas de tesorería en el período.</div>`)}
+      </div>
+      <div class="grid g2">
+        ${card("Rendimiento de la caja", tbl(["yld_income", "yld_avg_bal", "yld_ea", "yld_fidu_ea", "yld_ref", "idle_close", "opp_cost"]), { note: "Costo de oportunidad: estimación con metodología propuesta (saldo ocioso × diferencial de tasas fiducuenta vs ahorros); no es un costo contable." })}
+        ${card("Contraparte y seguro de depósitos", tbl(["cp_insured", "cp_over_cap", "cp_fic", "cp_insured_pct", "cp_group_pct", "cxc_bal"]), { note: `Tope Fogafín por persona y entidad: ${M(P.deposit_insurance_cap)}. Las fiducuentas (fondos de inversión colectiva) no tienen seguro de depósitos.` })}
+      </div>
+      ${card("Líneas de crédito (tarjetas activas)", `<table class="mini">${facHead}<tbody>${facRows(fac)}<tr><td><b>Total</b></td><td class="num"><b>${M(D.sum(fac, "Cupo (maestro)"))}</b></td><td class="num"><b>${M(D.sum(fac, "Saldo último corte"))}</b></td><td colspan="7"></td></tr></tbody></table>`,
+        { unit: "COP", note: "Saldo y utilización del último corte COP hasta el cierre auditado (cupo del extracto). Saldo máx. 30% = cupo × 30% (guía de DataCrédito Experian; aplica por tarjeta y en total, sobre el saldo reportado al corte). Plazo máx. sin intereses = 30 días + días entre corte y pago (aproximación). Cupo y tasas según el maestro." })}
+      ${more("Todas las métricas de tesorería", `<div id="tr-all"></div>`, { meta: `${Object.keys(D.tr.metrics).length} indicadores · ${ps.length} trimestres` })}
+      ${more("Tarjetas cerradas o canceladas", `<table class="mini">${facHead}<tbody>${facRows(facClosed)}</tbody></table>`, { pad: true, meta: `${facClosed.length}` })}
+      ${more("Insumos mensuales (Tesoreria_Input)", `<div id="tr-in"></div>`, { meta: `${D.tr.monthly.length} meses · conciliados contra el libro de bancos` })}
+    </div>`;
+
+    // gráfico 1: liquidez por cuenta (mensual, apilado)
+    const mo = D.tr.monthly.filter(r => !selYear() || r.Año <= selYear());
+    const series = [["savings", "Ahorros *9910", COL.cur], ["fidu_6191", "Fiducuenta *6191", COL.fam], ["fidu_0934", "Fiducuenta *0934", "#a7a7a2"], ["fidu_0452", "Fiducuenta *0452", COL.und]];
+    if (mo.length) {
+      C.bar("ch-tr1", mo.map(r => F.monthLabel(r.Mes)), series.map(([k, l, c]) => ({ label: l, data: mo.map(r => r[k] || null), backgroundColor: c })), { stacked: true, fmt: v => M(v) });
+      document.getElementById("tr-leg1").innerHTML = legend(series.map(([, l, c]) => ({ label: l, color: c })));
+    } else C.empty("ch-tr1");
+    // gráfico 2: trimestral
+    const qp = ps.filter(p => ps.indexOf(p) <= ps.indexOf(cur));
+    C.combo("ch-tr2", qp, [{ label: "Liquidez total", data: qp.map(p => trv("liq_total", p)), backgroundColor: qp.map(p => p === cur ? COL.cur : COL.fam) },
+      { label: "Deuda de tarjetas", data: qp.map(p => trv("cc_debt", p)), backgroundColor: COL.prev }],
+      [{ label: "Reserva objetivo", data: qp.map(p => trv("reserve_target", p)), borderColor: COL.line, backgroundColor: COL.line }], { fmt: v => M(v) });
+    // gráfico 3: costo bancario
+    C.bar("ch-tr3", qp, [["cost_fees", "Cuotas de manejo", COL.cur], ["cost_ins", "Seguros", COL.fam], ["cost_int", "Intereses", COL.line], ["cost_gmf", "GMF 4x1000", COL.und]]
+      .map(([k, l, c]) => ({ label: l, data: qp.map(p => trv(k, p) || 0), backgroundColor: c })), { stacked: true, fmt: v => M(v) });
+    // matriz completa
+    const keys = Object.keys(D.tr.metrics);
+    let lastSec = null;
+    document.getElementById("tr-all").innerHTML = `<div class="body" style="overflow-x:auto"><table class="mini"><thead><tr><th>Indicador</th>${ps.map(p => `<th class="num" ${p === cur ? 'style="color:var(--accent)"' : ""}>${esc(p)}</th>`).join("")}</tr></thead><tbody>${keys.map(k => {
+      const m = D.tr.metrics[k]; let h = "";
+      if (m.section !== lastSec) { lastSec = m.section; h = `<tr><td colspan="${ps.length + 1}"><b>${esc(m.section || "")}</b></td></tr>`; }
+      return h + `<tr><td>${esc(m.label)}${src(m.definition)}</td>${ps.map(p => `<td class="num">${trFmt(k, m.values[p])}</td>`).join("")}</tr>`;
+    }).join("")}</tbody></table></div>`;
+    T.render("tr-in", { rows: D.tr.monthly.slice().reverse(), pageSize: 24, columns: [{ key: "Mes", label: "Mes", fmt: x => F.monthLabel(x) },
+      { key: "savings", label: "Ahorros *9910", num: true, fmt: CP }, { key: "fidu_6191", label: "Fid. *6191", num: true, fmt: CP }, { key: "fidu_0934", label: "Fid. *0934", num: true, fmt: CP },
+      { key: "fidu_0452", label: "Fid. *0452", num: true, fmt: CP }, { key: "liquidity", label: "Liquidez", num: true, fmt: CP }, { key: "external_spend", label: "Gasto externo", num: true, fmt: CP },
+      { key: "gmf", label: "GMF", num: true, fmt: CP }, { key: "savings_interest", label: "Intereses", num: true, fmt: CP }, { key: "fidu_yield", label: "Rend. netos", num: true, fmt: CP },
+      { key: "withholding", label: "Retención", num: true, fmt: CP }, { key: "fidu_rate", label: "Fiducuenta E.A.", num: true, fmt: x => pct(x, 2) }] });
   }
 
   /* comparativo interanual leído de las matrices históricas del libro (sin recalcular) */
@@ -726,17 +854,17 @@
   /* ======================================================================================
      ENRUTADOR / ARRANQUE
      ====================================================================================== */
-  const RENDER = { resumen: renderResumen, tarjetas: renderTarjetas, bancos: renderBancos, productos: renderProductos, excepciones: renderExcepciones, cronograma: renderCronograma, calidad: renderCalidad };
+  const RENDER = { tesoreria: renderTesoreria, resumen: renderResumen, tarjetas: renderTarjetas, bancos: renderBancos, productos: renderProductos, excepciones: renderExcepciones, cronograma: renderCronograma, calidad: renderCalidad };
   function route() {
-    let p = (location.hash || "#resumen").slice(1);
+    let p = (location.hash || "#tesoreria").slice(1);
     if (ALIAS[p]) p = ALIAS[p];
-    if (!PAGES.includes(p)) p = "resumen";
+    if (!PAGES.includes(p)) p = "tesoreria";
     F.page = p;
     document.querySelectorAll(".side a[data-page]").forEach(a => a.setAttribute("aria-current", a.dataset.page === p ? "page" : "false"));
     document.querySelectorAll(".page").forEach(s => s.classList.toggle("active", s.id === "page-" + p));
-    document.getElementById("page-title").textContent = TITLES[p] + (CONTROL.includes(p) || !selYear() ? "" : " · " + scopeLabel(p === "bancos" ? "bank" : "tc"));
-    document.getElementById("crumb").textContent = CONTROL.includes(p) ? "Auditoría Financiera / Control de auditoría" : "Auditoría Financiera";
-    document.title = TITLES[p] + " · Auditoría Financiera";
+    document.getElementById("page-title").textContent = TITLES[p] + (p === "tesoreria" ? (trPeriod().cur ? " · " + trPeriod().cur : "") : CONTROL.includes(p) || !selYear() ? "" : " · " + scopeLabel(p === "bancos" ? "bank" : "tc"));
+    document.getElementById("crumb").textContent = CONTROL.includes(p) ? "Treasury Control Tower / Control de auditoría" : "Treasury Control Tower";
+    document.title = TITLES[p] + " · Treasury Control Tower";
     F.render(); renderPeriod();
     try { RENDER[p](); } catch (e) { console.error(e); document.getElementById("page-" + p).innerHTML = `<div class="banner error">Error al dibujar la vista: ${esc(e.message)}</div>`; }
     renderFoot(p);

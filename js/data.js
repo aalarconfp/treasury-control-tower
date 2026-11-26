@@ -9,7 +9,7 @@
       if (window.AUDIT_DATA && window.AUDIT_DATA.metadata) {
         this.raw = window.AUDIT_DATA;
       } else {
-        const names = ["metadata", "credit_cards", "bank_cash", "exceptions", "timeline", "continuity", "product_utility", "data_quality"];
+        const names = ["metadata", "credit_cards", "bank_cash", "exceptions", "timeline", "continuity", "product_utility", "data_quality", "treasury"];
         const out = {};
         for (const n of names) {
           try { const r = await fetch("data/" + n + ".json", { cache: "no-store" }); if (r.ok) out[n] = await r.json(); }
@@ -26,6 +26,7 @@
       this.cont = r.continuity || null;
       this.pu = r.product_utility || { catalog: [], monthly: [], fiducuentas: [], metadata: {} };
       this.dq = r.data_quality || { checks: [], reconciliation: [], summary: {} };
+      this.tr = r.treasury || { metadata: { available: false }, periods: [], metrics: {}, facilities: [], monthly: [] };
       this.ready = !!(this.cc && this.bank && this.exc && this.tl);
       if (this.ready) this._index();
       return this;

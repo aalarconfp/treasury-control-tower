@@ -42,6 +42,12 @@ Instrucción: "Ejecuta Financial Account Audit para Qn AAAA" (o "anual AAAA"). C
 5. **Pagos_TC_Trimestral**, **Materiales_Trimestral** (todo movimiento ≥ COP 1.000.000 con conclusión), **Fiducuenta_TC** (capital, intereses, retención, saldo promedio, tasa observada, días de permanencia, capital a pagos TC; costo de oportunidad solo con metodología).
 6. **Historico_Trimestral_Bancos**: columna `Qn-AAAA` nueva. **Controles_Trimestrales**: T-BA01…T-BA12.
 
+## 3b. Tesorería — hojas `Tesoreria_Input` y `Metricas_Tesoreria` del libro TC
+1. Con el libro de bancos cerrado y guardado en Excel: `python scripts/treasury_inputs.py sync`. Respalda el libro TC en `source/archive/pre_tesoreria_sync_AAAA-MM-DD/` y agrega a **Tesoreria_Input** los meses nuevos (saldos de fin de mes, gasto externo, GMF, intereses, rendimientos, retención y rentabilidad E.A. de la fiducuenta). `python scripts/treasury_inputs.py check` solo compara.
+2. **Metricas_Tesoreria**: copiar la última columna `Qn-AAAA` a la derecha y cambiar el encabezado. Año y trimestre se leen del encabezado; la fila "Resultado de controles" debe quedar en OK.
+3. Revisar en **Parametros** (filas 30–35) la reserva objetivo, el saldo operativo de ahorros, la tasa de ahorros, el tope Fogafín y, si se usa, la tasa de referencia del trimestre.
+4. Cuenta nueva material (otro banco): agregar una columna en Tesoreria_Input y en `scripts/treasury_inputs.py`, y ajustar las filas de liquidez y concentración de Metricas_Tesoreria.
+
 ## 4. Excepciones (registro central único: `Excepciones_Central` del libro TC)
 - ID siguiente = el que muestra el dashboard (Resumen → "Siguiente ID de excepción"). Nunca reutilizar IDs.
 - Campos: ID, Año, Trimestre, Fecha, Origen, Producto, Banco, Concepto, Monto, Tipo de monto, Categoría, Tipo, Riesgo, Money Pro, Splitwise, Explicación, Acción, Evidencia, Estado, Hallazgo relacionado.
@@ -54,7 +60,7 @@ Instrucción: "Ejecuta Financial Account Audit para Qn AAAA" (o "anual AAAA"). C
 ## 5. Guardar, refrescar, emitir y validar
 1. Abrir ambos libros en Excel y **guardar** (recalcula los valores que lee el ETL).
 2. Ejecutar `scripts\cierre_trimestral.bat AAAA n` (equivale a: refresh → `build_quarterly_reports.py --year AAAA --quarter n` → refresh → `validate_system.py`, que escribe también `validation/Validacion_Cierre_AAAA-MM-DD.md` con las validaciones A–P).
-3. Revisar en el dashboard: Calidad de Datos (0 ERROR, conciliaciones OK), Cronograma (trimestre "Completado"), Excepciones.
+3. Revisar en el dashboard: Tesorería (controles de la hoja en OK, alertas), Calidad de Datos (0 ERROR, conciliaciones OK, incluidas las de Tesorería (insumos)), Cronograma (trimestre "Completado"), Excepciones.
 4. Responder las excepciones abiertas en el libro (Explicación / Estado / Comentario de cierre) y volver a refrescar.
 
 ## 6. Cierre anual (enero)

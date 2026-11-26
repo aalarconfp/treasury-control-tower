@@ -18,12 +18,12 @@ Informes PDF trimestrales (deliverables/AAAA)                       Continuidad 
 
 ```
 Financial Audit Dashboard/
-├── index.html                      Aplicación (7 vistas, en español; rediseño v3 nov-2026)
+├── index.html                      Aplicación (8 vistas, en español; rediseño v3 nov-2026)
 ├── css/styles.css                  Tema sobrio: un acento azul marino, grises; rojo solo para excepciones abiertas de riesgo alto y errores
 ├── js/                             data.js (motor SUMA/CONTEO) · names.js (nombres comerciales) · filters.js · charts.js · tables.js · app.js · vendor/Chart.js
 ├── data/                           GENERADO por el ETL — no editar
 │   ├── metadata.json  credit_cards.json  bank_cash.json  exceptions.json  timeline.json
-│   ├── continuity.json  product_utility.json  data_quality.json
+│   ├── continuity.json  product_utility.json  data_quality.json  treasury.json
 │   └── dashboard_data.js           Todo lo anterior en un archivo (funciona con doble clic, sin servidor)
 ├── source/
 │   ├── Sistema_Auditoria_TC.xlsx   Libro de tarjetas (multianual) — fuente de verdad
@@ -38,6 +38,7 @@ Financial Audit Dashboard/
 ├── work/<período>/                 GENERADO por audit_pipeline.py: preflight_<p>.md/json, audit_state.json, declarations.json (opcional)
 ├── scripts/
 │   ├── refresh_dashboard.py        ETL v2 (multianual, por configuración)
+│   ├── treasury_inputs.py          Insumos mensuales de tesorería: sync (agrega meses a Tesoreria_Input) y check
 │   ├── build_quarterly_reports.py  Informes PDF trimestrales desde data/*.json
 │   ├── audit_pipeline.py           Preflight GO/NO-GO, orden de fases, respaldo, verificación del dashboard (skill financial-account-audit)
 │   ├── audit_sources.json          Registro de productos, ciclo de vida y rutas de evidencia (editar al abrir/cerrar/migrar un producto)
@@ -66,6 +67,7 @@ Navegación lateral. Las vistas principales muestran pocas cifras, nombres comer
 
 | Vista | Contenido |
 |---|---|
+| Tesorería | Vista inicial (Treasury Control Tower). Franja con el cierre y los parámetros; 5 KPIs (liquidez total, posición neta de caja, meses de cobertura vs reserva, utilización de cupo, costo bancario); liquidez por cuenta a fin de mes; liquidez vs deuda de tarjetas vs reserva objetivo por trimestre; costo bancario por trimestre; "Requiere atención"; rendimiento de la caja y caja ociosa; contraparte y seguro de depósitos; líneas de crédito por tarjeta. Plegables: todas las métricas por trimestre, tarjetas cerradas, insumos mensuales. Lee `Metricas_Tesoreria` sin recalcular |
 | Resumen | Franja de estado (trimestres auditados, excepciones, conciliaciones, próximo cierre); 4 KPIs (consumo con tarjeta, costo neto de tarjetas, saldo de efectivo, rendimientos); consumo por trimestre vs año anterior y naturaleza del consumo; saldo de efectivo a fin de mes y flujos; valor neto por producto; "Requiere atención" (excepciones abiertas o en monitoreo, productos con valor neto negativo, consumo sin clasificar); panel lateral con estado de auditoría, excepciones, integridad y próximos cierres |
 | Tarjetas de crédito | 5 KPIs; consumo por tarjeta; compras por categoría; tendencia trimestral; resumen por tarjeta y trimestre. Plegables: comparativo, extractos, beneficios, transacciones, excepciones de tarjetas |
 | Bancos y efectivo | 5 KPIs; flujo mensual; saldo por cuenta; movimientos de capital interno; saldos al cierre. Plegables: comparativo, continuidad de saldos, transferencias internas, pagos de tarjetas, movimientos materiales, movimientos, excepciones de bancos |
@@ -91,3 +93,10 @@ Período: selector de año y trimestre en la cabecera; los demás filtros en el 
 ## Compatibilidad con 2025
 
 El ETL v2 también procesa los libros originales de 2025 (archivados) sin cambios: `python scripts/refresh_dashboard.py --check --tc source/archive/2025_baseline/Sistema_Auditoria_TC_2025_baseline.xlsx --bank source/archive/2025_baseline/Auditoria_Bancos_2025_baseline.xlsx` → 77 conciliaciones OK.
+
+## Tesorería (Treasury Control Tower)
+
+* **Tesoreria_Input** (libro TC): una fila por mes con saldos de fin de mes (*9910 y fiducuentas), gasto externo, GMF, intereses, rendimientos netos, retención y rentabilidad E.A. informada. Valores azules copiados de `Auditoria_Bancos.xlsx` por `scripts/treasury_inputs.py`; el ETL los concilia celda a celda en cada refresh (categoría "Tesorería (insumos)").
+* **Metricas_Tesoreria** (libro TC): matriz Clave × `Qn-AAAA` con fórmulas sobre Tesoreria_Input, Extractos_Input, Historico_Trimestral, Maestro_Productos y los parámetros `T_*` de Parametros (filas 30–35); debajo, la tabla "Líneas de crédito". El dashboard lee los valores calculados por la columna Clave.
+* Supuestos editables: reserva objetivo (meses de gasto), saldo operativo de ahorros, tasa de ahorros, tope del seguro de depósitos Fogafín (por persona y entidad) y tasa de referencia (opcional). Los valores viven en la hoja Parametros del libro, no en el código.
+* El costo de oportunidad de la caja ociosa es una estimación con metodología propuesta; no es un costo contable.

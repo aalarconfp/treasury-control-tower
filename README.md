@@ -1,6 +1,6 @@
-# Financial Account Audit Dashboard
+# Treasury Control Tower
 
-Sistema de auditoría trimestral de cuentas financieras personales (tarjetas de crédito, cuentas de ahorro, fiducuentas y efectivo). Los libros Excel de auditoría son la fuente de verdad; un ETL en Python los lee en modo solo lectura, los concilia y genera los datos de un dashboard HTML estático y los informes PDF trimestrales.
+Tesorería personal y auditoría trimestral de cuentas financieras (tarjetas de crédito, cuentas de ahorro, fiducuentas y efectivo): posición de liquidez, financiamiento con tarjetas, costo bancario, rendimiento de la caja, contraparte y controles de auditoría en un solo tablero. Los libros Excel de auditoría son la fuente de verdad; un ETL en Python los lee en modo solo lectura, los concilia y genera los datos de un dashboard HTML estático y los informes PDF trimestrales.
 
 > Este repositorio contiene **solo código y documentación**. Los libros, extractos, datos generados, informes y el registro de productos viven fuera del control de versiones y están excluidos por `.gitignore`.
 
@@ -12,7 +12,8 @@ Con muchas tarjetas, cuentas y emisores, es fácil que falte un extracto, que un
 - impone el orden de las fases y bloquea el cierre si algo falla;
 - concilia en cada refresh (188 conciliaciones) contra los resúmenes de los propios libros;
 - separa hallazgos históricos de excepciones actuales y controla su continuidad entre años;
-- publica un dashboard de 7 vistas y los informes PDF trimestrales a partir de los mismos datos.
+- publica un dashboard de 8 vistas y los informes PDF trimestrales a partir de los mismos datos;
+- consolida métricas de tesorería por trimestre (hoja `Metricas_Tesoreria`): liquidez y meses de cobertura frente a una reserva objetivo, posición neta de caja, utilización y cupo disponible de tarjetas, costo bancario total (cuotas, seguros, intereses, GMF), rendimiento efectivo de la caja y caja ociosa, cobertura del seguro de depósitos y concentración por entidad, y líneas de crédito por tarjeta.
 
 ## Arquitectura (resumen)
 
@@ -25,7 +26,7 @@ audit_pipeline.py  preflight GO / NO-GO ─► fases P7–P18 en orden
         ▼
 Libros Excel (fuente de verdad) ─► refresh_dashboard.py (ETL, solo lectura, SHA-256)
                                           │
-                     data/*.json + dashboard_data.js ─► index.html (7 vistas)
+                     data/*.json + dashboard_data.js ─► index.html (8 vistas)
                                           │
                 build_quarterly_reports.py (PDF) ─► validate_system.py (15 controles + cierre A–P)
 ```
@@ -44,6 +45,7 @@ Python ≥ 3.9 (probado con 3.14) · `openpyxl` · `reportlab` · `pypdf` (o `pd
 ├── scripts/
 │   ├── audit_pipeline.py            preflight GO/NO-GO, orden de fases, respaldo, control de excepciones
 │   ├── refresh_dashboard.py         ETL multianual: libros → data/*.json
+│   ├── treasury_inputs.py           insumos mensuales de tesorería (sync / check contra el libro de bancos)
 │   ├── build_quarterly_reports.py   informes PDF trimestrales
 │   ├── validate_system.py           validación del sistema y del cierre
 │   ├── config.json                  rutas, años, materialidad, estados
@@ -106,9 +108,12 @@ python scripts/repo_safety_check.py
 
 - Auditoría 2025 (línea base congelada) y Q1–Q3 2026: cerradas. Q4 2026 se audita en enero de 2027.
 - Preflight, ETL, dashboard v3, informes PDF y validación: operativos.
+- Treasury Control Tower (nov-2026): vista Tesorería, hojas `Tesoreria_Input` y `Metricas_Tesoreria`, 210 conciliaciones adicionales de los insumos contra el libro de bancos.
 - El ETL está adaptado a la estructura de hojas de los libros del autor; reutilizarlo con otros libros requiere ajustar `config.json`, el registro de productos y `js/names.js`.
 
 ## Roadmap
+
+- Tesorería: exposición cambiaria (tasa efectiva de conversión de los ingresos en USD frente a la TRM) y pronóstico de caja de 13 semanas.
 
 - Conjunto de datos de demostración sintético para ver el dashboard sin datos reales.
 - CI (GitHub Actions) con las pruebas, el control de seguridad y escaneo de secretos.

@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Auditoría Financiera</title>
+<title>Treasury Control Tower</title>
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 <div class="app">
   <nav class="side" aria-label="Navegación principal">
-    <div class="brand"><span class="t">Auditoría Financiera</span><span class="s">Tarjetas · Bancos · Productos</span></div>
+    <div class="brand"><span class="t">Treasury Control Tower</span><span class="s">Tesorería · Tarjetas · Bancos · Auditoría</span></div>
     <div class="nav-group">
+      <a href="#tesoreria" data-page="tesoreria">Tesorería</a>
       <a href="#resumen" data-page="resumen">Resumen</a>
       <a href="#tarjetas" data-page="tarjetas">Tarjetas de crédito</a>
       <a href="#bancos" data-page="bancos">Bancos y efectivo</a>
@@ -28,8 +29,8 @@
   <div class="main-col">
     <header class="topbar">
       <div class="tb-title">
-        <span class="crumb" id="crumb">Auditoría Financiera</span>
-        <h1 id="page-title">Resumen</h1>
+        <span class="crumb" id="crumb">Treasury Control Tower</span>
+        <h1 id="page-title">Tesorería</h1>
       </div>
       <div class="tb-tools">
         <div class="period" id="period" role="group" aria-label="Período"></div>
@@ -42,6 +43,7 @@
 
     <main>
       <div id="banner"></div>
+      <section class="page" id="page-tesoreria"></section>
       <section class="page" id="page-resumen"></section>
       <section class="page" id="page-tarjetas"></section>
       <section class="page" id="page-bancos"></section>

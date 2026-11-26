@@ -42,6 +42,8 @@ except ImportError:  # pragma: no cover
     sys.exit("ERROR: falta openpyxl.  Ejecute:  pip install openpyxl")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "scripts"))
+import treasury_inputs  # noqa: E402  (definición única de los insumos de tesorería)
 DATA_DIR = os.path.join(ROOT, "data")
 CONFIG_PATH = os.path.join(ROOT, "scripts", "config.json")
 SCHEMA_VERSION = "2.0"
@@ -451,7 +453,8 @@ def extract_tc(wb, log, label):
     for sheet, spec in TC_OPTIONAL_SHEETS.items():
         opt[sheet] = read_table(wb, sheet, spec, log, label, optional_sheet=True)
     pf = read_productos_financieros(wb, log, label)
-    return {"params": {k: (v if isinstance(v, float) else norm(v)) for k, v in params.items()}, "transactions": txns, "statements": statements, "benefits": benefits, "cxc": clean(t["CxC_Input"]),
+    treasury = read_treasury(wb, log, label)
+    return {"treasury": treasury, "params": {k: (v if isinstance(v, float) else norm(v)) for k, v in params.items()}, "transactions": txns, "statements": statements, "benefits": benefits, "cxc": clean(t["CxC_Input"]),
             "master": clean(t["Maestro_Productos"]), "review": clean(t["Revision_Productos"]), "crosscheck": clean(t["CrossCheck_Maestro"]),
             "framework": clean(t["Framework"]), "calendar": clean(t["Calendario_Arquitectura"]), "exceptions_raw": t["Excepciones_Central"], "historico": hist,
             "resumen": resumen, "continuity_sheet": opt.get("Continuidad_Hallazgos"), "lifecycle_sheet": opt.get("Ciclo_Vida_Productos"),
@@ -488,6 +491,105 @@ def read_productos_financieros(wb, log, label):
     if not cat or not mon:
         log.warn("PRODUCTS_EMPTY", "Productos_Financieros sin catálogo o sin tabla mensual.")
     return {"catalog": cat, "monthly": mon}
+
+
+TREASURY_PARAMS = OrderedDict([("reserve_months", "Reserva de liquidez objetivo (meses de gasto)"), ("operating_balance", "Saldo operativo máximo en ahorros *9910 (COP)"),
+                               ("savings_rate", "Tasa E.A. cuenta de ahorros *9910"), ("deposit_insurance_cap", "Tope seguro de depósitos Fogafín por persona y entidad (COP)"),
+                               ("reference_rate", "Tasa de referencia E.A. (opcional, p. ej. CDT 90 días)"), ("utilization_threshold", "Umbral utilización de cupo")])
+
+
+def read_treasury(wb, log, label):
+    """Hojas de tesorería del libro TC (opcionales): Metricas_Tesoreria (matriz por Clave + líneas de crédito) y Tesoreria_Input."""
+    if "Metricas_Tesoreria" not in wb.sheetnames or treasury_inputs.SHEET not in wb.sheetnames:
+        log.warn("MISSING_SHEET", f"{label}: faltan Metricas_Tesoreria o {treasury_inputs.SHEET}; la vista Tesorería queda vacía.")
+        return None
+    rows = list(wb["Metricas_Tesoreria"].iter_rows(values_only=True))
+    hdr_i = next((i for i, r in enumerate(rows) if r and r[0] == "Clave" and len(r) > 1 and r[1] == "Indicador"), None)
+    if hdr_i is None:
+        log.error("HEADER_NOT_FOUND", f"No se encontró el encabezado Clave / Indicador en {label}!Metricas_Tesoreria", workbook=label, sheet="Metricas_Tesoreria")
+        return None
+    hdr = rows[hdr_i]
+    pcols = [(j, str(v).strip()) for j, v in enumerate(hdr) if isinstance(v, str) and re.fullmatch(r"Q[1-4]-\d{4}", v.strip())]
+    dcol = next((j for j, v in enumerate(hdr) if v == "Definición"), None)
+    metrics, sections, section, nocache = OrderedDict(), [], None, []
+    for r in rows[hdr_i + 1:]:
+        if not r or (r[0] is None and r[1] is None):
+            continue
+        if r[0] == "Líneas de crédito":
+            break
+        if r[0] is None and isinstance(r[1], str):
+            section = r[1].strip(); sections.append(section); continue
+        key = str(r[0]).strip()
+        if key.startswith("_"):
+            continue
+        vals = OrderedDict()
+        for j, per in pcols:
+            v = r[j] if j < len(r) else None
+            if v is None:
+                nocache.append(f"{key} {per}")
+            vals[per] = _r(v, 6) if isinstance(v, float) else (None if v in ("n/d", "") else v)
+        metrics[key] = OrderedDict([("label", norm(r[1])), ("unit", norm(r[2])), ("section", section), ("values", vals),
+                                    ("definition", norm(r[dcol]) if dcol is not None and dcol < len(r) else None)])
+    if nocache:
+        log.warn("NO_CACHED_VALUE", f"Metricas_Tesoreria: {len(nocache)} celdas sin valor calculado (libro guardado sin recalcular). Abra el libro en Excel, guárdelo y refresque.",
+                 cells=nocache[:20])
+    fac, fh = [], None
+    for i, r in enumerate(rows):
+        if r and r[0] == "N°" and len(r) > 2 and r[1] == "Banco":
+            fh = [str(c).strip() if c else "" for c in r]
+            for rr in rows[i + 1:]:
+                if not rr or not isinstance(rr[0], (int, float)):
+                    break
+                if not rr[1]:
+                    continue
+                fac.append(OrderedDict((h, (None if v == "n/d" else norm(v))) for h, v in zip(fh, rr) if h and h != "N°"))
+            break
+    if fh is None:
+        log.warn("TREASURY_NO_FACILITIES", "Metricas_Tesoreria sin la tabla 'Líneas de crédito'.")
+    inputs = treasury_inputs.read_sheet(wb) or []
+    for x in inputs:
+        for k in list(x):
+            if isinstance(x[k], (dt.datetime, dt.date)):
+                x[k] = x[k].strftime("%Y-%m-%d")
+    return {"periods": [p for _, p in pcols], "sections": sections, "metrics": metrics, "facilities": fac, "inputs": inputs}
+
+
+def build_treasury(tc, derived, log):
+    """Dataset de la vista Tesorería: valores de Metricas_Tesoreria tal como los calcula Excel + conciliación de Tesoreria_Input vs libro de bancos."""
+    tr = tc.get("treasury")
+    if not tr:
+        return OrderedDict([("metadata", {"available": False}), ("periods", []), ("metrics", {}), ("facilities", []), ("monthly", [])])
+    if derived is not None:
+        diffs, missing = treasury_inputs.compare(tr["inputs"], derived)
+        by = {x["_mes"]: x for x in tr["inputs"]}
+        for d in derived:
+            s_ = by.get(d["Mes"])
+            if s_ is None:
+                continue
+            for field, label in treasury_inputs.FIELD_LABEL.items():
+                a, b = to_num(s_.get(label)), d.get(field)
+                if a is None and b is None:
+                    continue
+                log.check(f"Tesorería {d['Mes']} · {label}", "Tesorería (insumos)", "Auditoria_Bancos (derivado)", b, f"Tesoreria_Input · {label}", a,
+                          tol=1e-6 if field == "fidu_rate" else 1.0)
+        if missing:
+            log.warn("TREASURY_MONTHS_MISSING", f"Tesoreria_Input no tiene {len(missing)} mes(es) que sí están en el libro de bancos: {', '.join(missing)}. "
+                     "Ejecute: python scripts/treasury_inputs.py sync", months=missing)
+    monthly = []
+    for x in tr["inputs"]:
+        monthly.append(OrderedDict([("Año", x.get("Año")), ("Trimestre", x.get("Trimestre")), ("Mes", x["_mes"])] +
+                                   [(f, to_num(x.get(lab))) for f, lab in treasury_inputs.FIELD_LABEL.items()] + [("liquidity", to_num(x.get("Liquidez total")))]))
+    params = OrderedDict((k, tc["params"].get(v)) for k, v in TREASURY_PARAMS.items())
+    for p in tr["periods"]:
+        st = (tr["metrics"].get("chk_status") or {}).get("values", {}).get(p)
+        if st not in (None, "OK"):
+            log.warn("TREASURY_CONTROL", f"Metricas_Tesoreria {p}: resultado de controles = {st}")
+    return OrderedDict([
+        ("metadata", {"available": True, "source": "Sistema_Auditoria_TC.xlsx › Metricas_Tesoreria / Tesoreria_Input", "params": params, "sections": tr["sections"],
+                      "rules": ["Todas las cifras se leen de Metricas_Tesoreria tal como las calcula Excel; el dashboard no recalcula.",
+                                "Tesoreria_Input se concilia en cada refresh contra Auditoria_Bancos (saldos de fin de mes, GMF, intereses, rendimientos, retención y gasto externo).",
+                                "Costo de oportunidad: estimación con metodología propuesta (saldo ocioso × diferencial de tasas); no es un costo contable."]}),
+        ("periods", tr["periods"]), ("metrics", tr["metrics"]), ("facilities", tr["facilities"]), ("monthly", monthly)])
 
 
 def extract_bank(wb, log, label):
@@ -1192,7 +1294,7 @@ def write_json(name, obj):
     os.replace(tmp, path)
 
 
-DATASETS = ("metadata", "credit_cards", "bank_cash", "exceptions", "timeline", "continuity", "product_utility", "data_quality")
+DATASETS = ("metadata", "credit_cards", "bank_cash", "exceptions", "timeline", "continuity", "product_utility", "data_quality", "treasury")
 
 
 def _write_bundle():
@@ -1250,6 +1352,11 @@ def main(argv=None):
     tc_label, bank_label = sources[0]["file"], sources[1]["file"]
     tc = extract_tc(wb_tc, log, tc_label)
     bank = extract_bank(wb_ba, log, bank_label) if not log.errors else None
+    try:
+        treasury_derived = treasury_inputs.derive_monthly(wb_ba) if bank is not None else None
+    except ValueError as e:
+        treasury_derived = None
+        log.warn("TREASURY_DERIVE", f"No se pudieron derivar los insumos de tesorería del libro de bancos: {e}")
     wb_tc.close(); wb_ba.close()
     hashes_ok = all(sha256(resolve(p)) == h for p, h in before.items())
     if not hashes_ok:
@@ -1270,6 +1377,7 @@ def main(argv=None):
     cc = build_credit_cards(tc, exceptions, cont)
     bk = build_bank(bank, exceptions)
     pu = build_products(tc, bank, cfg)
+    tre = build_treasury(tc, treasury_derived, log)
     aggs = reconcile(tc, bank, exceptions, cfg, log)
     cc["quarter_summary"] = [OrderedDict([("period", p), ("Año", int(p[3:])), ("Trimestre", int(p[1]))] + [(k, _r(v)) for k, v in m.items()]) for p, m in aggs.items()]
     timeline = build_timeline(tc, bank, exceptions, cfg, sources, log)
@@ -1299,7 +1407,7 @@ def main(argv=None):
     records = OrderedDict([("transacciones_tc", len(cc["transactions"])), ("extractos_tc", len(cc["statements"])), ("movimientos_bancarios", len(bk["transactions"])),
                            ("excepciones", len(exceptions)), ("excepciones_actuales", sum(1 for e in exceptions if not e["is_historical"])),
                            ("hallazgos_historicos", sum(1 for e in exceptions if e["is_historical"])), ("productos", len(pu["catalog"])),
-                           ("filas_utilidad", len(pu["monthly"])), ("controles_registrados", len(dq["controls"])), ("periodos_cronograma", len(timeline["periods"]))])
+                           ("filas_utilidad", len(pu["monthly"])), ("meses_tesoreria", len(tre["monthly"])), ("metricas_tesoreria", len(tre["metrics"])), ("controles_registrados", len(dq["controls"])), ("periodos_cronograma", len(timeline["periods"]))])
     n_fail = sum(1 for c in log.checks if c["status"] != "PASS")
     meta.update(OrderedDict([
         ("status", "OK" if not n_fail and not log.warnings else "OK_WITH_WARNINGS"), ("years", years), ("current_audit_year", current_year),
@@ -1310,7 +1418,7 @@ def main(argv=None):
         print(json.dumps({"status": meta["status"], "dq": dq["summary"], "reconciliation": meta["reconciliation"], "warnings": len(log.warnings)}, ensure_ascii=False))
         return 0
     for name, obj in (("credit_cards.json", cc), ("bank_cash.json", bk), ("exceptions.json", exc_json), ("timeline.json", timeline), ("continuity.json", cont_json),
-                      ("product_utility.json", pu), ("data_quality.json", dq), ("metadata.json", meta)):
+                      ("product_utility.json", pu), ("data_quality.json", dq), ("treasury.json", tre), ("metadata.json", meta)):
         write_json(name, obj)
     _write_bundle()
     print(f"Refresh OK  {now}")

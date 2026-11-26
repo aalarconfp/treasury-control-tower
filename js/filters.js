@@ -7,6 +7,7 @@
   const ALL = "";
   const NAMES = ["year", "quarter", "month", "bank", "product", "card", "category", "flow", "status", "risk", "source"];
   const APPLIES = {
+    tesoreria: ["year", "quarter"],
     resumen: ["year", "quarter", "month", "status", "risk"],
     tarjetas: ["year", "quarter", "month", "bank", "product", "card", "category", "status", "risk"],
     bancos: ["year", "quarter", "month", "bank", "product", "flow", "status", "risk"],
@@ -22,7 +23,7 @@
   const blank = () => { const s = {}; NAMES.forEach(n => { s[n] = PER_PAGE.includes(n) ? {} : ALL; }); return s; };
 
   const F = {
-    page: "resumen",
+    page: "tesoreria",
     state: blank(),
     listeners: [],
     init() {
