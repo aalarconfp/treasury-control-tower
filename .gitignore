@@ -1,0 +1,78 @@
+# =============================================================================
+# Financial Audit Dashboard — .gitignore
+# Estrategia: ALLOWLIST. Todo lo que está en la raíz se ignora por defecto;
+# solo se versiona el código y la documentación listados. Los archivos de datos
+# nuevos quedan excluidos automáticamente (SEGURIDAD > COMODIDAD).
+# =============================================================================
+
+# 1) Denegar todo en la raíz
+/*
+
+# 2) Permitir código, plantillas y documentación (lista explícita)
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/PROCEDIMIENTO_TRIMESTRAL.md
+!/ARQUITECTURA.md
+!/requirements.txt
+!/index.html
+!/css/
+!/js/
+!/scripts/
+!/docs/
+!/examples/
+
+# 3) Nunca JSON por defecto (pueden contener cifras financieras).
+#    Solo la configuración del ETL y los ejemplos sanitizados.
+*.json
+!/scripts/config.json
+!/examples/*.example.json
+
+# 4) Registro privado de productos (rutas y números de cuenta) — nunca
+/scripts/audit_sources.json
+
+# 5) Secretos y configuración local — nunca
+.env
+.env.*
+*.pem
+*.key
+*.pfx
+*.p12
+.claude/settings.local.json
+
+# 6) Datos financieros personales y exportaciones — nunca (aunque estén en carpetas permitidas)
+*.csv
+*.tsv
+*.xlsx
+*.xlsm
+*.xls
+*.docx
+*.doc
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.zip
+*.tgz
+*.gz
+*.gscript
+*.md.bak
+
+# 7) Artefactos generados — nunca
+#    (data/, source/, deliverables/, validation/, continuity/, work/ y archive/ ya quedan fuera por la regla 1)
+__pycache__/
+*.py[cod]
+*.log
+.pytest_cache/
+.venv/
+venv/
+
+# 8) Ruido de SO / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+~$*
+.vscode/
+.idea/

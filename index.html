@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auditoría Financiera</title>
+<link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<div class="app">
+  <nav class="side" aria-label="Navegación principal">
+    <div class="brand"><span class="t">Auditoría Financiera</span><span class="s">Tarjetas · Bancos · Productos</span></div>
+    <div class="nav-group">
+      <a href="#resumen" data-page="resumen">Resumen</a>
+      <a href="#tarjetas" data-page="tarjetas">Tarjetas de crédito</a>
+      <a href="#bancos" data-page="bancos">Bancos y efectivo</a>
+      <a href="#productos" data-page="productos">Productos</a>
+    </div>
+    <div class="nav-group">
+      <span class="nav-h">Control de auditoría</span>
+      <a href="#excepciones" data-page="excepciones"><span>Excepciones</span><span class="count" id="nav-exc"></span></a>
+      <a href="#cronograma" data-page="cronograma">Cronograma y continuidad</a>
+      <a href="#calidad" data-page="calidad"><span>Calidad de datos</span><span class="count" id="nav-dq"></span></a>
+    </div>
+    <div class="side-foot" id="side-foot"></div>
+  </nav>
+
+  <div class="main-col">
+    <header class="topbar">
+      <div class="tb-title">
+        <span class="crumb" id="crumb">Auditoría Financiera</span>
+        <h1 id="page-title">Resumen</h1>
+      </div>
+      <div class="tb-tools">
+        <div class="period" id="period" role="group" aria-label="Período"></div>
+        <span class="cmp-label" id="cmp-label"></span>
+        <button type="button" class="btn" id="btn-filters" aria-expanded="false" aria-controls="filterpanel">Filtros</button>
+        <button type="button" class="btn" id="btn-print">Exportar PDF</button>
+      </div>
+    </header>
+    <div class="filterpanel" id="filterpanel" hidden><div id="filters"></div></div>
+
+    <main>
+      <div id="banner"></div>
+      <section class="page" id="page-resumen"></section>
+      <section class="page" id="page-tarjetas"></section>
+      <section class="page" id="page-bancos"></section>
+      <section class="page" id="page-productos"></section>
+      <section class="page" id="page-excepciones"></section>
+      <section class="page" id="page-cronograma"></section>
+      <section class="page" id="page-calidad"></section>
+    </main>
+    <footer class="foot" id="foot"></footer>
+  </div>
+</div>
+<div id="tip" role="tooltip"></div>
+
+<!-- Datos: generados por scripts/refresh_dashboard.py (mismo contenido que data/*.json; funciona abriendo el archivo localmente) -->
+<script src="data/dashboard_data.js"></script>
+<script src="js/vendor/chart.umd.min.js"></script>
+<script src="js/names.js"></script>
+<script src="js/data.js"></script>
+<script src="js/filters.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/tables.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

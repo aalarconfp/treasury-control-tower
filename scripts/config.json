@@ -1,0 +1,89 @@
+{
+  "_comment": "Configuración del ETL (schema 2.0). Rutas relativas a la carpeta del dashboard. Ningún año está fijo en el código: se toman de aquí y de los datos (columna Año).",
+  "schema_version": "2.0",
+  "system_name": "Sistema de Auditoría de Cuentas Financieras",
+  "baseline_year": 2025,
+  "current_audit_year": 2026,
+  "years_expected": [
+    2025,
+    2026
+  ],
+  "sources": {
+    "tc": "source/Sistema_Auditoria_TC.xlsx",
+    "bank": "source/Auditoria_Bancos.xlsx"
+  },
+  "archive": {
+    "2025_baseline": {
+      "tc": {
+        "path": "source/archive/2025_baseline/Sistema_Auditoria_TC_2025_baseline.xlsx",
+        "sha256": "06a2e95d710fda3d2b6bf3241211eb7b38bee55d5e4988bf024454add883e6f1"
+      },
+      "bank": {
+        "path": "source/archive/2025_baseline/Auditoria_Bancos_2025_baseline.xlsx",
+        "sha256": "0a8c347c4ab369bb59f9feca576adff3466077c8410cc47b005f4c7e061ca8cd"
+      }
+    }
+  },
+  "continuity": {
+    "_comment": "La hoja Continuidad_Hallazgos del libro TC es la fuente. El CSV solo se usa si la hoja no existe (respaldo histórico, ya reemplazado).",
+    "excel_sheet_findings": "Continuidad_Hallazgos",
+    "excel_sheet_lifecycle": "Ciclo_Vida_Productos",
+    "findings_csv": "continuity/Findings_Continuity_2025.csv",
+    "lifecycle_csv": "continuity/Card_Lifecycle.csv"
+  },
+  "materiality_cop": 1000000,
+  "freshness_days": 100,
+  "open_statuses": [
+    "Open",
+    "Review"
+  ],
+  "preferred_statuses": [
+    "Open",
+    "Monitor",
+    "Explained",
+    "No Action Required",
+    "Closed"
+  ],
+  "status_normalization": {
+    "Corrected": "Closed",
+    "Resolved": "Closed",
+    "Cerrado": "Closed",
+    "Abierto": "Open",
+    "Explicado": "Explained",
+    "Monitorear": "Monitor",
+    "No requiere acción": "No Action Required"
+  },
+  "bank_origin_pattern": "Bancari",
+  "schedule": {
+    "_comment": "Mes de ejecución planeado de cada trimestre (Q4 se ejecuta en enero del año siguiente).",
+    "quarterly_execution_month": {
+      "1": 4,
+      "2": 7,
+      "3": 10,
+      "4": 1
+    }
+  },
+  "deliverable_search_dirs": [
+    ".",
+    ".."
+  ],
+  "deliverables": {
+    "tc": {
+      "annual": "Informe_Auditoria_TC_{Y}.pdf",
+      "quarterly": "Auditoria_Trimestral_TC_Q{Q}_{Y}.pdf"
+    },
+    "bank": {
+      "annual": "Informe_Auditoria_Bancos_{Y}.pdf",
+      "quarterly": "Auditoria_Trimestral_Bancos_Q{Q}_{Y}.pdf"
+    }
+  },
+  "deliverable_registry": {
+    "tc": {
+      "Q4-2025": "Auditoria_Trimestral_TC_Q4_2025.pdf",
+      "Anual 2025": "Informe_Auditoria_TC_2025.pdf"
+    },
+    "bank": {
+      "Anual 2025": "Informe_Auditoria_Bancos_2025.pdf"
+    }
+  }
+}

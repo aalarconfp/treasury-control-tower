@@ -1,0 +1,17 @@
+# Finales de línea normalizados (repositorio editado desde Windows)
+* text=auto
+*.py text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+*.bat text eol=crlf
+
+# Binarios (nunca deberían versionarse — ver .gitignore — pero se declaran por seguridad)
+*.pdf binary
+*.xlsx binary
+*.docx binary
+*.png binary
+*.zip binary

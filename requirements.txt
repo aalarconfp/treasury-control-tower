@@ -1,0 +1,4 @@
+# Financial Audit Dashboard — dependencias de Python (probado con 3.14)
+openpyxl>=3.1      # lectura de los libros Excel (ETL, preflight)
+reportlab>=4.0     # informes PDF trimestrales y fixtures de las pruebas
+pypdf>=4.0         # lectura de extractos PDF (respaldo si no está pdftotext/Poppler)

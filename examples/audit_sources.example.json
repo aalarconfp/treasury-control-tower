@@ -1,0 +1,370 @@
+{
+  "_comment": "EJEMPLO SANITIZADO del registro de productos (scripts/audit_sources.json es privado y no se versiona). Lo usan las pruebas. Copiar a scripts/audit_sources.json y adaptar. Rutas relativas a evidence_root. Editar aquí cuando se abra, cierre o migre un producto; nunca en el código. {Y}=año, {M}=mes 2 dígitos, {MON}=mes en mayúsculas ESP (ENE..DIC), {QM}=mes final del trimestre.",
+  "schema_version": "1.0",
+  "evidence_root": "..",
+  "dashboard_root": ".",
+  "pdf_password_env": "AUDIT_PDF_PASSWORD",
+  "products": [
+    {
+      "id": "TC-6907",
+      "name": "Bancolombia Visa Infinite",
+      "mask": "*6907",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "Bancolombia",
+          "adapter": "zip_member",
+          "folder": "Tarjetas de Credito/Bancolombia/{Y}",
+          "zip_glob": "Documento_{Y}{M}_*.zip",
+          "member": "6907_{MON}{Y}.xlsx"
+        }
+      ]
+    },
+    {
+      "id": "TC-7744",
+      "name": "Bancolombia Mastercard",
+      "mask": "*7744",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "Bancolombia",
+          "adapter": "zip_member",
+          "folder": "Tarjetas de Credito/Bancolombia/{Y}",
+          "zip_glob": "Documento_{Y}{M}_*.zip",
+          "member": "7744_{MON}{Y}.xlsx"
+        }
+      ]
+    },
+    {
+      "id": "TC-7935",
+      "name": "Bancolombia American Express",
+      "mask": "*7935",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "Bancolombia",
+          "adapter": "zip_member",
+          "folder": "Tarjetas de Credito/Bancolombia/{Y}",
+          "zip_glob": "Documento_{Y}{M}_*.zip",
+          "member": "7935_{MON}{Y}.xlsx"
+        }
+      ]
+    },
+    {
+      "id": "TC-8457",
+      "name": "Bancolombia E-Card",
+      "mask": "*8457",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "Bancolombia",
+          "adapter": "zip_member",
+          "folder": "Tarjetas de Credito/Bancolombia/{Y}",
+          "zip_glob": "Documento_{Y}{M}_*.zip",
+          "member": "8457_{MON}{Y}.xlsx"
+        }
+      ]
+    },
+    {
+      "id": "TC-7547",
+      "name": "Occidente Credencial",
+      "mask": "*7547",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "Banco de Occidente",
+          "adapter": "occidente_pdf",
+          "folder": "Tarjetas de Credito/Banco de Occidente/{Y+}",
+          "glob": "ExtractosUnificados*.pdf",
+          "card": "7547"
+        }
+      ]
+    },
+    {
+      "id": "TC-5933",
+      "name": "Itaú Visa Gold",
+      "mask": "*5933",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "to": "2026-07",
+          "bank": "Itaú",
+          "adapter": "itau_pdf",
+          "folder": "Tarjetas de Credito/Banco Itau/{Y}",
+          "glob": "*.pdf",
+          "card": "5933"
+        },
+        {
+          "from": "2026-08",
+          "bank": "Itaú",
+          "adapter": "closed",
+          "event": {
+            "type": "closed",
+            "date": "2026-07-31",
+            "note": "Cerrada por adquisición: Banco de Bogotá emitió la Mastercard Oro *6931 en reemplazo (TC-6931). Historial Itaú conservado.",
+            "evidence": "Último extracto del emisor + confirmación del titular"
+          }
+        }
+      ]
+    },
+    {
+      "id": "TC-6931",
+      "name": "Banco de Bogotá Mastercard Oro",
+      "mask": "*6931",
+      "module": "tc",
+      "opened": "2026-08",
+      "segments": [
+        {
+          "from": "2026-08",
+          "bank": "Banco de Bogotá",
+          "adapter": "bdb_pdf",
+          "folder": "Tarjetas de Credito/Banco de Bogota",
+          "glob": "*.pdf",
+          "card": "6931",
+          "event": {
+            "type": "opened",
+            "date": "2026-08-01",
+            "note": "Emitida por adquisición de Itaú; reemplaza TC-5933. Expedición del plástico 31-oct-2026 según maestro."
+          }
+        }
+      ]
+    },
+    {
+      "id": "TC-RAPPI",
+      "name": "RappiCard VISA",
+      "mask": "*1335→*2214",
+      "module": "tc",
+      "opened": "2020-01",
+      "statements_only_with_activity": true,
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "RappiPay (Davivienda)",
+          "adapter": "rappi_pdf",
+          "folder": "Tarjetas de Credito/RappiPay",
+          "glob": "*.pdf"
+        }
+      ]
+    },
+    {
+      "id": "TC-3910",
+      "name": "NuBank Mastercard",
+      "mask": "*3910",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "NuBank",
+          "adapter": "none",
+          "no_source_reason": "Sin canal de extracto en Drive; sin uso conocido (maestro)."
+        }
+      ]
+    },
+    {
+      "id": "TC-7874",
+      "name": "Falabella Mastercard",
+      "mask": "*7874",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "Banco Falabella",
+          "adapter": "none",
+          "no_source_reason": "Sin canal de extracto en Drive; sin uso conocido (maestro)."
+        }
+      ]
+    },
+    {
+      "id": "TC-TUYA",
+      "name": "Tuya",
+      "mask": "**5268 / *8689",
+      "module": "tc",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "to": "2026-01",
+          "bank": "Tuya",
+          "adapter": "none",
+          "no_source_reason": "Sin canal de extracto en Drive."
+        },
+        {
+          "from": "2026-02",
+          "bank": "Tuya",
+          "adapter": "closed",
+          "event": {
+            "type": "closed",
+            "date": "2026-01-31",
+            "evidence": "DataCredito/<reporte>.pdf"
+          }
+        }
+      ]
+    },
+    {
+      "id": "CA-9910",
+      "name": "Bancolombia ahorros",
+      "mask": "*9910",
+      "module": "bank",
+      "opened": "2020-01",
+      "frequency": "quarterly",
+      "segments": [
+        {
+          "from": "2020-01",
+          "bank": "Bancolombia",
+          "adapter": "file_name",
+          "folder": "Cuentas Bancarias/Cuenta de Ahorros",
+          "pattern": "Extracto_{Y}{M}_Cuentas_de ahorro_9910.xlsx"
+        }
+      ]
+    },
+    {
+      "id": "FC-6191",
+      "name": "Fiducuenta TC",
+      "mask": "*6191",
+      "module": "bank",
+      "opened": "2020-01",
+      "segments": [
+        {
+          "from": "2020-01",
+          "to": "2026-02",
+          "bank": "Fiduciaria Bancolombia",
+          "adapter": "file_name",
+          "folder": "Cuentas Bancarias/Fiducuentas/{Y}",
+          "pattern": "Extracto_{Y}{M}_Fiducuenta_6191.xlsx"
+        },
+        {
+          "from": "2026-03",
+          "bank": "Fiduciaria Bancolombia",
+          "adapter": "zip_member",
+          "folder": "Cuentas Bancarias/Fiducuentas/{Y}",
+          "zip_glob": "Documento_{Y}{M}_*.zip",
+          "member": "9990000006191_{MON}{Y}.xlsx"
+        }
+      ]
+    },
+    {
+      "id": "FC-0934",
+      "name": "Fiducuenta *0934",
+      "mask": "*0934",
+      "module": "bank",
+      "opened": "2026-03",
+      "segments": [
+        {
+          "from": "2026-03",
+          "bank": "Fiduciaria Bancolombia",
+          "adapter": "zip_member",
+          "folder": "Cuentas Bancarias/Fiducuentas/{Y}",
+          "zip_glob": "Documento_{Y}{M}_*.zip",
+          "member": "9990000000934_{MON}{Y}.xlsx"
+        }
+      ]
+    },
+    {
+      "id": "FC-0452",
+      "name": "Fiducuenta *0452 (capital familiar administrado)",
+      "mask": "*0452",
+      "module": "bank",
+      "opened": "2026-07",
+      "segments": [
+        {
+          "from": "2026-07",
+          "bank": "Fiduciaria Bancolombia",
+          "adapter": "zip_member",
+          "folder": "Cuentas Bancarias/Fiducuentas/{Y}",
+          "zip_glob": "Documento_{Y}{M}_*.zip",
+          "member": "9990000000452_{MON}{Y}.xlsx"
+        }
+      ]
+    }
+  ],
+  "sources": {
+    "moneypro": {
+      "label": "Money Pro (export de transacciones)",
+      "requirement": "mandatory",
+      "folder": "",
+      "glob": "Money Pro Transactions - *.csv",
+      "columns": [
+        "Date",
+        "Amount",
+        "Account",
+        "Category",
+        "Transaction Type"
+      ],
+      "date_format": "%m/%d/%Y",
+      "max_gap_days_end": 5,
+      "consequence": "Sin Money Pro no hay conciliación de consumo ni de rendimientos: NO-GO."
+    },
+    "splitwise": {
+      "label": "Splitwise (export del grupo familiar)",
+      "requirement": "mandatory",
+      "folder": "SplitWise",
+      "glob": "*export*.csv",
+      "columns": [
+        "Date",
+        "Description",
+        "Cost"
+      ],
+      "date_format": "%m/%d/%Y",
+      "export_date_regex": "_(\\d{4}-\\d{2}-\\d{2})_",
+      "consequence": "Sin Splitwise no se concluye sobre gastos familiares, reembolsos ni CxC: NO-GO (o ejecución PARCIAL solo del módulo bancos)."
+    },
+    "datacredito": {
+      "label": "Datacrédito",
+      "requirement": "conditional",
+      "folder": "DataCredito",
+      "glob": "*.pdf",
+      "date_regex": "(\\d{1,2})-(\\d{1,2})-(\\d{2})",
+      "condition": "Producto cerrado o migrado en el período o pendiente de confirmar; obligatorio en la auditoría anual.",
+      "consequence": "La conclusión de cierre/migración del producto afectado queda PENDIENTE (no se declara confirmada)."
+    },
+    "puntos": {
+      "label": "Puntos Colombia (export de movimientos)",
+      "requirement": "conditional",
+      "folder": "Puntos Colombia",
+      "glob": "Puntos Colombia *.xlsx",
+      "row_cap": 250,
+      "condition": "Tarjetas con acumulación/redención de puntos en el período.",
+      "consequence": "Sin export no se verifican puntos ganados/redimidos: beneficio de puntos queda 'Sin evidencia'."
+    },
+    "primax_control": {
+      "label": "Control de equivalencias Puntos Colombia / Primax",
+      "requirement": "historical_control",
+      "workbook": "Puntos Colombia/Auditoria Primax 2024-2026/Auditoria_PuntosColombia_Primax_2024-2026.xlsx",
+      "sheet": "Control_Equivalencias",
+      "consequence": "Mientras la equivalencia Primax esté 'Pendiente', las redenciones se valoran como ESTIMADAS y Parametros!B19 no se cambia automáticamente."
+    },
+    "beneficios": {
+      "label": "Beneficios de tarjetas (documento del usuario)",
+      "requirement": "conditional",
+      "folder": "Tarjetas de Credito/Beneficios",
+      "glob": "*.docx",
+      "condition": "Cambios de beneficios o evaluación de utilidad de productos.",
+      "consequence": "Beneficio teórico sin fuente del usuario: usar solo fuentes oficiales con fecha de verificación."
+    },
+    "costos_bancolombia": {
+      "label": "Reporte anual de costos Bancolombia",
+      "requirement": "annual",
+      "folder": "Cuentas Bancarias/Reportes Costos",
+      "pattern": "Reporte_{Y}12_AnualCostosBancolombia_4120.xlsx",
+      "consequence": "Auditoría anual: costos bancarios del año sin confirmación del emisor."
+    }
+  },
+  "workbooks": {
+    "tc": "source/Sistema_Auditoria_TC.xlsx",
+    "bank": "source/Auditoria_Bancos.xlsx"
+  }
+}
