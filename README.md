@@ -1,86 +1,103 @@
 # Treasury Control Tower
 
-Tesorería personal y auditoría trimestral de cuentas financieras (tarjetas de crédito, cuentas de ahorro, fiducuentas y efectivo): posición de liquidez, financiamiento con tarjetas, costo bancario, rendimiento de la caja, contraparte y controles de auditoría en un solo tablero. Los libros Excel de auditoría son la fuente de verdad; un ETL en Python los lee en modo solo lectura, los concilia y genera los datos de un dashboard HTML estático y los informes PDF trimestrales.
+A personal "finance department in a box". Every quarter it audits all my credit cards, savings accounts and investment funds, then shows the results on one dashboard. It answers the questions a company treasurer would ask:
 
-> Este repositorio contiene **solo código y documentación**. Los libros, extractos, datos generados, informes y el registro de productos viven fuera del control de versiones y están excluidos por `.gitignore`.
+- How much cash do I have, and how many months of expenses does it cover?
+- How much do my credit cards really cost me in fees, insurance and interest, and are the rewards worth it?
+- Is any money sitting idle when it could be earning more?
+- Is too much money concentrated in one bank, beyond what deposit insurance protects?
+- Did anything unusual happen that needs a follow-up?
 
-## Problema que resuelve
+> **Privacy:** this repository holds only the tools and the instructions. All real financial data (bank statements, spreadsheets, reports and account details) stays on my computer and is never uploaded.
 
-Con muchas tarjetas, cuentas y emisores, es fácil que falte un extracto, que una comisión pase sin revisar o que se cierre un trimestre con cifras que no cuadran. El sistema:
+## The problem it solves
 
-- verifica antes de auditar que toda la evidencia del período exista (*preflight* GO / NO-GO por producto y mes);
-- impone el orden de las fases y bloquea el cierre si algo falla;
-- concilia en cada refresh (188 conciliaciones) contra los resúmenes de los propios libros;
-- separa hallazgos históricos de excepciones actuales y controla su continuidad entre años;
-- publica un dashboard de 8 vistas y los informes PDF trimestrales a partir de los mismos datos;
-- consolida métricas de tesorería por trimestre (hoja `Metricas_Tesoreria`): liquidez y meses de cobertura frente a una reserva objetivo, posición neta de caja, utilización y cupo disponible de tarjetas, costo bancario total (cuotas, seguros, intereses, GMF), rendimiento efectivo de la caja y caja ociosa, cobertura del seguro de depósitos y concentración por entidad, y líneas de crédito por tarjeta.
+With many cards, accounts and banks, things slip through the cracks: a missing statement, an unexpected fee, a quarter closed with numbers that don't add up. Doing it by hand takes hours and is easy to get wrong.
 
-## Arquitectura (resumen)
+This project turns the review into a repeatable routine:
 
-```
-Extractos (Gmail → Apps Script → Drive) + Money Pro + Splitwise
-        │
-        ▼
-audit_pipeline.py  preflight GO / NO-GO ─► fases P7–P18 en orden
-        │
-        ▼
-Libros Excel (fuente de verdad) ─► refresh_dashboard.py (ETL, solo lectura, SHA-256)
-                                          │
-                     data/*.json + dashboard_data.js ─► index.html (8 vistas)
-                                          │
-                build_quarterly_reports.py (PDF) ─► validate_system.py (15 controles + cierre A–P)
-```
+1. **Check first.** Before the audit starts, it confirms that every statement and export for the period is on hand. If something is missing, it stops and says exactly what is missing.
+2. **Follow the steps in order.** The audit has fixed steps, and a step cannot run before the one it depends on is done.
+3. **Cross-check everything.** Every time the numbers are updated, about 400 automatic checks confirm the totals match across sources.
+4. **Keep a memory.** Issues found in past years are tracked separately from new ones, so an old problem is never forgotten and never counted twice.
+5. **Report.** The dashboard and a quarterly PDF report come from the same numbers, so they always agree.
 
-Regla central: **ninguna regla de auditoría vive en JavaScript**. Excel clasifica y decide; el ETL lee, agrega y concilia; el HTML solo visualiza. Detalle en [`ARQUITECTURA.md`](ARQUITECTURA.md) y [`docs/dashboard.md`](docs/dashboard.md).
-
-## Tecnología
-
-Python ≥ 3.9 (probado con 3.14) · `openpyxl` · `reportlab` · `pypdf` (o `pdftotext` de Poppler) · HTML/CSS/JS sin framework ni build · [Chart.js](https://www.chartjs.org/) 4.4.4 incluido en `js/vendor/` (licencia MIT). Ver [`requirements.txt`](requirements.txt).
-
-## Estructura
+## How it works
 
 ```
-├── README.md · requirements.txt · .gitignore · .gitattributes
-├── index.html · css/ · js/          dashboard estático (abre con doble clic, sin servidor)
-├── scripts/
-│   ├── audit_pipeline.py            preflight GO/NO-GO, orden de fases, respaldo, control de excepciones
-│   ├── refresh_dashboard.py         ETL multianual: libros → data/*.json
-│   ├── treasury_inputs.py           insumos mensuales de tesorería (sync / check contra el libro de bancos)
-│   ├── build_quarterly_reports.py   informes PDF trimestrales
-│   ├── validate_system.py           validación del sistema y del cierre
-│   ├── config.json                  rutas, años, materialidad, estados
-│   ├── repo_safety_check.py         control previo a cada commit
-│   ├── *.bat                        atajos para Windows
-│   └── tests/test_audit_pipeline.py
-├── examples/audit_sources.example.json   registro de productos sanitizado
-├── docs/                            dashboard y metodología de auditoría (docs/audit_skill/)
-├── PROCEDIMIENTO_TRIMESTRAL.md      paso a paso de cada trimestre
-└── ARQUITECTURA.md                  decisiones de la arquitectura multianual
+Bank statements + expense app + shared-expenses app
+                │
+                ▼
+     1. Completeness check  ──►  stop if anything is missing
+                │
+                ▼
+     2. Audit spreadsheets  (the single source of truth: every decision is made here)
+                │
+                ▼
+     3. Update script  ──►  reads the spreadsheets without changing them,
+                │            cross-checks the totals, prepares the dashboard data
+                ▼
+     4. Dashboard (8 screens)  +  quarterly PDF reports  +  final quality check
 ```
 
-Carpetas locales no versionadas: `source/` (libros Excel), `data/` (salida del ETL), `deliverables/` (PDF), `validation/`, `work/<período>/`, `continuity/`, `archive/` y `scripts/audit_sources.json` (registro real de productos).
+The key rule: **decisions are made in one place only, the spreadsheets.** The scripts only read, add up and verify. The dashboard only displays. This keeps the numbers consistent and easy to trace back to the source.
 
-## Uso
+## What the dashboard shows
+
+| Screen | What it answers |
+|---|---|
+| Treasury | Cash position, months of coverage, card debt vs. available credit, total banking cost, return on cash, bank concentration |
+| Summary | The quarter at a glance and what needs attention |
+| Credit cards | Spending by card and category, fees and interest, rewards received |
+| Banks and cash | Money in and out each month, balances, transfers between my own accounts |
+| Products | Whether each card or account is worth keeping (cost vs. benefit) |
+| Issues | Open, monitored and resolved findings |
+| Timeline | Which quarters are audited and how past issues were followed up |
+| Data quality | Results of all automatic checks |
+
+## What it is built with
+
+- **Excel spreadsheets:** where the audit work and all decisions live.
+- **Python scripts:** small programs that check, cross-check and prepare the data. They use three free add-ons: one reads Excel files, one creates PDF reports, and one reads PDF bank statements.
+- **A simple web page:** the dashboard opens with a double-click in any browser. No installation, no server and no internet connection needed. Charts are drawn with Chart.js, a free charting library included in the project.
+
+## What's in this repository
+
+| Folder or file | What it is |
+|---|---|
+| `index.html`, `css/`, `js/` | The dashboard |
+| `scripts/` | The programs: completeness check, data update, PDF reports, quality checks, treasury inputs |
+| `scripts/tests/` | Automatic tests for the completeness check |
+| `examples/` | A sample product list with fake account numbers, to show the format |
+| `docs/` | Dashboard guide and audit methodology (in Spanish) |
+| `PROCEDIMIENTO_TRIMESTRAL.md` | Step-by-step quarterly procedure (in Spanish) |
+| `ARQUITECTURA.md` | Design decisions for running the audit year after year (in Spanish) |
+
+Not in the repository, kept only on my computer: the spreadsheets, bank statements, dashboard data, PDF reports, check results and the real list of accounts.
+
+## How to run it
+
+Requires Python 3.9 or newer.
 
 ```
-pip install -r requirements.txt
-copy examples\audit_sources.example.json scripts\audit_sources.json   # y adaptarlo a sus productos
-python scripts/audit_pipeline.py preflight --period 2026Q4
-python scripts/refresh_dashboard.py
+pip install -r requirements.txt                                        # install the three add-ons
+copy examples\audit_sources.example.json scripts\audit_sources.json   # then list your own products in it
+python scripts/audit_pipeline.py preflight --period 2026Q4             # 1. is everything on hand?
+python scripts/refresh_dashboard.py                                    # 3. update the dashboard data
 ```
 
-Luego abra `index.html`. El cierre completo (refresh + PDF + validación) es `scripts\cierre_trimestral.bat 2026 4`. Los extractos PDF protegidos se leen con la contraseña en la variable de entorno `AUDIT_PDF_PASSWORD`, solo durante la sesión; nunca se guarda.
+Then open `index.html`. To close a full quarter in one go (update, PDF reports and final check), run `scripts\cierre_trimestral.bat 2026 4`.
 
-Después de editar un libro, ábralo en Excel y **guárdelo** antes del refresh: el ETL lee los valores calculados.
+Two practical notes:
+- After editing a spreadsheet, open it in Excel and **save it** before updating. The update reads the values Excel calculated.
+- Some banks send password-protected PDFs. The password is typed in for the session only and is never saved anywhere.
 
-## Workflow trimestral
+## The quarterly routine
 
-1. Mensual: solo captura y archivo de extractos (no hay auditoría mensual).
-2. Exportar Money Pro, Splitwise y, si aplica, Puntos Colombia.
-3. Preflight → con GO, actualizar los libros (fases P7–P14).
-4. Refresh del dashboard → informes PDF → validación del cierre.
-
-Paso a paso en [`PROCEDIMIENTO_TRIMESTRAL.md`](PROCEDIMIENTO_TRIMESTRAL.md).
+1. **Every month:** statements arrive by email and are filed automatically. No audit yet.
+2. **After each quarter:** export the expense and shared-expenses apps.
+3. **Run the completeness check.** If it says GO, update the audit spreadsheets.
+4. **Update the dashboard,** produce the PDF reports and run the final quality check.
 
 ## Testing
 
@@ -88,33 +105,34 @@ Paso a paso en [`PROCEDIMIENTO_TRIMESTRAL.md`](PROCEDIMIENTO_TRIMESTRAL.md).
 python scripts/tests/test_audit_pipeline.py
 ```
 
-16 escenarios del preflight (GO, NO-GO por extracto o fuente faltante, PDF protegido, migración de producto, auditoría anual, orden de fases, hallazgos históricos). Usan fixtures temporales y el registro sanitizado de `examples/`: no necesitan datos privados, red ni Notion.
+Runs 16 realistic situations: everything in place, a missing statement, a missing export, a locked PDF, a card replaced by another bank, a year-end audit, steps run out of order, and an old issue reappearing. The tests use made-up files only, never real data.
 
-Antes de cada commit:
+Before publishing any change:
 
 ```
 python scripts/repo_safety_check.py
 ```
 
-## Seguridad
+This scans everything about to be uploaded and blocks the upload if it finds spreadsheets, statements, reports, personal folder paths, emails, account numbers or large amounts.
 
-- `.gitignore` en modo *allowlist*: solo se versiona lo que está listado; cualquier archivo nuevo queda fuera por defecto.
-- Nunca se versionan Excel, CSV, PDF, Word, imágenes, comprimidos ni JSON con resultados.
-- El ETL abre los libros en solo lectura y verifica su SHA-256 antes y después de cada refresh.
-- Sin credenciales en el código; la contraseña de los PDF solo vive en una variable de entorno de la sesión.
-- Los productos se identifican por los últimos 4 dígitos (`*1234`), nunca por el número completo.
+## Privacy and security
 
-## Estado actual
+- **Nothing is uploaded unless it is on an approved list.** Any new file is kept private by default.
+- **Spreadsheets, statements, PDFs, images and data files are never uploaded.**
+- **The scripts never change the spreadsheets** when updating the dashboard, and they confirm each file is unchanged afterwards.
+- **No passwords are stored** anywhere in the project.
+- **Accounts are identified only by their last 4 digits** (for example `*1234`).
 
-- Auditoría 2025 (línea base congelada) y Q1–Q3 2026: cerradas. Q4 2026 se audita en enero de 2027.
-- Preflight, ETL, dashboard v3, informes PDF y validación: operativos.
-- Treasury Control Tower (nov-2026): vista Tesorería, hojas `Tesoreria_Input` y `Metricas_Tesoreria`, 210 conciliaciones adicionales de los insumos contra el libro de bancos.
-- El ETL está adaptado a la estructura de hojas de los libros del autor; reutilizarlo con otros libros requiere ajustar `config.json`, el registro de productos y `js/names.js`.
+## Status
 
-## Roadmap
+- 2025 audited and frozen as the reference year. Q1–Q3 2026 closed. Q4 2026 is audited in January 2027.
+- Completeness check, data update, dashboard, PDF reports and quality checks are all working.
+- Treasury screen added in November 2026.
+- Built around my own spreadsheets. Using it with different spreadsheets would need some adjustments to the settings, the product list and the card names.
 
-- Tesorería: exposición cambiaria (tasa efectiva de conversión de los ingresos en USD frente a la TRM) y pronóstico de caja de 13 semanas.
+## Next steps
 
-- Conjunto de datos de demostración sintético para ver el dashboard sin datos reales.
-- CI (GitHub Actions) con las pruebas, el control de seguridad y escaneo de secretos.
-- Pruebas del ETL con libros sintéticos.
+- Currency exposure: what I actually get when income in US dollars is converted to pesos, compared with the official rate.
+- A 13-week cash forecast.
+- A demo version with fake data, so anyone can explore the dashboard.
+- Automatic tests and privacy checks on every upload to GitHub.
