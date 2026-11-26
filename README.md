@@ -5,8 +5,6 @@
 ![Python](https://img.shields.io/badge/Python-3.14-blue?logo=python&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-16%20passing-brightgreen)
 ![Status](https://img.shields.io/badge/status-active%20development-green)
-![Dashboard](https://img.shields.io/badge/dashboard-no%20install%20needed-informational)
-![Privacy](https://img.shields.io/badge/privacy-data%20stays%20local-success)
 
 A personal treasury and banking department in a box. Every quarter it audits all my credit cards, savings accounts and investment funds, then shows the results on one dashboard. It answers the questions a company treasurer would ask:
 
