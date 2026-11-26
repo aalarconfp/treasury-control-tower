@@ -1,6 +1,6 @@
 # Treasury Control Tower
 
-A personal "finance department in a box". Every quarter it audits all my credit cards, savings accounts and investment funds, then shows the results on one dashboard. It answers the questions a company treasurer would ask:
+A personal treasury and banking department in a box. Every quarter it audits all my credit cards, savings accounts and investment funds, then shows the results on one dashboard. It answers the questions a company treasurer would ask:
 
 - How much cash do I have, and how many months of expenses does it cover?
 - How much do my credit cards really cost me in fees, insurance and interest, and are the rewards worth it?
